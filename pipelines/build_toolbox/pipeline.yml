@@ -1,0 +1,48 @@
+resource_types:
+- name: slack-notification
+  type: docker-image
+  source:
+    repository: cfcommunity/slack-notification-resource
+    tag: latest
+
+resources:
+
+- name: notify
+  type: slack-notification
+  source:
+    url: ((slack-webhook))
+
+- name: git-toolbox
+  type: git
+  source:
+    uri: https://github.com/((github-username))/toolbox.git
+    branch: master
+
+- name: baseimage
+  type: docker-image
+  source:
+    email: ((docker-hub-email))
+    username: ((docker-hub-username))
+    password: ((docker-hub-password))
+    repository: ((docker-hub-username))/toolbox
+    tag: baseimage
+
+jobs:
+  - name: build-image
+    public: true
+    serial: true
+    plan:
+    - get: git-toolbox
+      trigger: true
+    - put: baseimage
+      params:
+        build: git-toolbox
+        dockerfile: git-toolbox/docker/ubuntu/Dockerfile
+      on_success:
+        put: notify
+        params:
+          text: "Job 'build-image' from 'toolbox' successfully ran."
+      on_failure:
+        put: notify
+        params:
+          text: "Job 'build-image' from 'toolbox' failed."

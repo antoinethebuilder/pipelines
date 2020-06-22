@@ -1,0 +1,42 @@
+resource_types:
+- name: slack-notification
+  type: docker-image
+  source:
+    repository: cfcommunity/slack-notification-resource
+    tag: latest
+
+resources:
+
+- name: notify
+  type: slack-notification
+  source:
+    url: ((slack-webhook))
+
+jobs:
+  - name: http-request
+    serial: true
+    plan:
+    - task: run
+      config:
+        platform: linux
+        image_resource:
+          type: docker-image
+          source: 
+            repository: ((docker-hub-username))/toolbox
+            tag: baseimage
+        outputs:
+          name: response
+        run:
+          path: bash
+          args:
+            - -c
+            - |
+              http https://httpbin.org/post hello=$VALUE | jq '.json|{hello}'
+      on_success:
+        put: notify
+        params:
+          text: "The pipeline 'test_watchdog' ran successfully."
+      on_failure:
+        put: notify
+        params:
+          text: "The pipeline 'test_watchdog' failed."
